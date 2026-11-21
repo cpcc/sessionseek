@@ -34,35 +34,35 @@ interface Props {
 
 export default function SearchResults({ hits, loading, error, query, onOpenHit }: Props) {
   return (
-    <div className="flex w-[340px] shrink-0 flex-col border-r border-[#21262d] bg-[#0d1117]">
-      <div className="flex items-center justify-between border-b border-[#21262d] px-4 py-2.5">
+    <div className="flex w-[340px] shrink-0 flex-col border-r border-line bg-bg">
+      <div className="flex items-center justify-between border-b border-line px-4 py-2.5">
         <span className="font-medium">搜索结果</span>
-        <span className="text-[11px] text-[#7d8590]">
+        <span className="text-[11px] text-faint">
           {loading ? "搜索中…" : error ? "—" : `${hits.length} 条命中`}
         </span>
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto">
-        {error && <div className="px-4 py-6 text-center text-[12px] text-[#f85149]">{error}</div>}
+        {error && <div className="px-4 py-6 text-center text-[12px] text-danger">{error}</div>}
         {!error && !loading && hits.length === 0 && (
-          <div className="px-4 py-6 text-center text-[12px] text-[#7d8590]">
+          <div className="px-4 py-6 text-center text-[12px] text-faint">
             「{query}」没有命中任何消息
           </div>
         )}
         {hits.map((h, i) => (
           <button
             key={`${h.sessionId}:${h.seq}:${i}`}
-            className="block w-full border-b border-[#21262d]/60 px-3.5 py-2.5 text-left hover:bg-[#161b22]"
+            className="block w-full border-b border-line/60 px-3.5 py-2.5 text-left hover:bg-panel"
             onClick={() => onOpenHit(h)}
           >
             <div className="flex items-center gap-2">
               <SourceBadge source={h.source} />
-              <span className="truncate text-[12px] text-[#c9d1d9]">{h.title || "(无标题)"}</span>
-              <span className="ml-auto shrink-0 text-[11px] text-[#7d8590]">{formatTime(h.timestamp)}</span>
+              <span className="truncate text-[12px] text-fg-soft">{h.title || "(无标题)"}</span>
+              <span className="ml-auto shrink-0 text-[11px] text-faint">{formatTime(h.timestamp)}</span>
             </div>
-            <div className="mt-1 line-clamp-3 whitespace-pre-wrap break-all text-[11.5px] leading-snug text-[#8b949e]">
+            <div className="mt-1 line-clamp-3 whitespace-pre-wrap break-all text-[11.5px] leading-snug text-muted">
               <Highlighted text={h.snippet} />
             </div>
-            <div className="mt-1 text-[10.5px] text-[#7d8590]">
+            <div className="mt-1 text-[10.5px] text-faint">
               {shortProject(h.project)} · {h.role} · #{h.seq}
             </div>
           </button>

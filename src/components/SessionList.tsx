@@ -31,10 +31,10 @@ export default function SessionList({
   });
 
   return (
-    <div className="flex w-[340px] shrink-0 flex-col border-r border-[#21262d] bg-[#0d1117]">
-      <div className="flex items-center justify-between border-b border-[#21262d] px-4 py-2.5">
+    <div className="flex w-[340px] shrink-0 flex-col border-r border-line bg-bg">
+      <div className="flex items-center justify-between border-b border-line px-4 py-2.5">
         <span className="font-medium">会话</span>
-        <span className="text-[11px] text-[#7d8590]">
+        <span className="text-[11px] text-faint">
           {loading ? "加载中…" : `共 ${total} 条`}
         </span>
       </div>
@@ -58,7 +58,7 @@ export default function SessionList({
                   className="p-3 text-center"
                 >
                   <button
-                    className="rounded-md border border-[#30363d] px-3 py-1 text-[12px] text-[#8b949e] hover:bg-[#161b22]"
+                    className="rounded-md border border-strong px-3 py-1 text-[12px] text-muted hover:bg-panel"
                     onClick={onLoadMore}
                   >
                     加载更多(已显示 {sessions.length}/{total})
@@ -82,25 +82,25 @@ export default function SessionList({
                 }}
               >
                 <button
-                  className={`block w-full border-b border-[#21262d]/60 px-3.5 py-2.5 text-left transition-colors ${
-                    selected ? "bg-[#1c2128]" : "hover:bg-[#161b22]"
+                  className={`block w-full border-b border-line/60 px-3.5 py-2.5 text-left transition-colors ${
+                    selected ? "bg-panel-hover" : "hover:bg-panel"
                   }`}
                   onClick={() => onSelect(s.id)}
                 >
                   <div className="flex items-center gap-2">
                     <SourceBadge source={s.source} />
-                    <span className="ml-auto shrink-0 text-[11px] text-[#7d8590]">
+                    <span className="ml-auto shrink-0 text-[11px] text-faint">
                       {formatTime(s.updatedAt)}
                     </span>
                   </div>
                   <div
                     className={`mt-1 line-clamp-2 text-[12.5px] leading-snug ${
-                      selected ? "text-[#e6edf3]" : "text-[#c9d1d9]"
+                      selected ? "text-fg" : "text-fg-soft"
                     }`}
                   >
                     {s.title || "(无标题)"}
                   </div>
-                  <div className="mt-1 flex items-center gap-2 text-[11px] text-[#7d8590]">
+                  <div className="mt-1 flex items-center gap-2 text-[11px] text-faint">
                     <span className="truncate">{shortProject(s.project)}</span>
                     <span className="shrink-0">· {s.messageCount} 条消息</span>
                   </div>

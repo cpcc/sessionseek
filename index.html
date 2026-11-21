@@ -5,8 +5,18 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>SessionSeek</title>
     <style>
-      html { background: #0d1117; }
+      html { background: var(--bg, #0d1117); }
     </style>
+    <script>
+      // 首屏前应用主题,避免闪色
+      try {
+        var t = localStorage.getItem("sessionseek-theme");
+        if (t !== "light" && t !== "dark") {
+          t = matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
+        }
+        document.documentElement.dataset.theme = t;
+      } catch (e) {}
+    </script>
   </head>
   <body>
     <div id="root"></div>

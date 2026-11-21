@@ -14,6 +14,7 @@ import {
   onScanProgress,
   scanNow,
 } from "./lib/ipc";
+import { initialTheme, applyTheme, type Theme } from "./lib/theme";
 import { SOURCE_LABEL, type ScanProgress, type SearchHit, type Source } from "./types";
 
 const MSG_PAGE = 100;
@@ -28,9 +29,15 @@ export default function App() {
   const [searchValue, setSearchValue] = useState("");
   const [submittedQuery, setSubmittedQuery] = useState<string | null>(null);
   const [view, setView] = useState<"session" | "stats">("session");
+  const [theme, setTheme] = useState<Theme>(initialTheme);
   const [scanning, setScanning] = useState(false);
   const [scanInfo, setScanInfo] = useState("");
   const initialized = useRef(false);
+
+  // ---- 主题切换 ----
+  useEffect(() => {
+    applyTheme(theme);
+  }, [theme]);
 
   // ---- 扫描事件 ----
   useEffect(() => {
@@ -176,6 +183,8 @@ export default function App() {
         onSearchSubmit={handleSearchSubmit}
         statsViewOpen={view === "stats"}
         onToggleStatsView={() => setView(view === "stats" ? "session" : "stats")}
+        theme={theme}
+        onToggleTheme={() => setTheme(theme === "dark" ? "light" : "dark")}
       />
 
       {showSearch ? (

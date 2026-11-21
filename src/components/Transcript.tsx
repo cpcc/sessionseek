@@ -19,25 +19,25 @@ function ToolCallBlock({ part }: { part: Extract<Part, { type: "tool_call" }> })
     /* 保留原样 */
   }
   return (
-    <div className="my-1 overflow-hidden rounded-md border border-[#30363d] bg-[#161b22]">
+    <div className="my-1 overflow-hidden rounded-md border border-strong bg-panel">
       <button
-        className="flex w-full items-center gap-2 px-3 py-1.5 text-left hover:bg-[#1c2128]"
+        className="flex w-full items-center gap-2 px-3 py-1.5 text-left hover:bg-panel-hover"
         onClick={() => setOpen(!open)}
       >
-        <span className="text-[12px] text-[#7d8590]">{open ? "▾" : "▸"}</span>
-        <span className="text-[12px] font-medium text-[#c9d1d9]">🔧 {part.name}</span>
+        <span className="text-[12px] text-faint">{open ? "▾" : "▸"}</span>
+        <span className="text-[12px] font-medium text-fg-soft">🔧 {part.name}</span>
         <span className={`ml-auto text-[11px] ${statusColor}`}>{part.status}</span>
       </button>
       {open && (
-        <div className="border-t border-[#21262d] px-3 py-2">
-          <div className="mb-1 text-[11px] text-[#7d8590]">输入</div>
-          <pre className="max-h-60 overflow-auto whitespace-pre-wrap break-all rounded bg-[#0d1117] p-2 font-mono text-[11.5px] text-[#a5b4c3]">
+        <div className="border-t border-line px-3 py-2">
+          <div className="mb-1 text-[11px] text-faint">输入</div>
+          <pre className="max-h-60 overflow-auto whitespace-pre-wrap break-all rounded bg-bg p-2 font-mono text-[11.5px] text-[#a5b4c3]">
             {inputPretty || "(空)"}
           </pre>
           {part.output && (
             <>
-              <div className="mt-2 mb-1 text-[11px] text-[#7d8590]">输出</div>
-              <pre className="max-h-80 overflow-auto whitespace-pre-wrap break-all rounded bg-[#0d1117] p-2 font-mono text-[11.5px] text-[#a5b4c3]">
+              <div className="mt-2 mb-1 text-[11px] text-faint">输出</div>
+              <pre className="max-h-80 overflow-auto whitespace-pre-wrap break-all rounded bg-bg p-2 font-mono text-[11.5px] text-[#a5b4c3]">
                 {part.output}
               </pre>
             </>
@@ -51,15 +51,15 @@ function ToolCallBlock({ part }: { part: Extract<Part, { type: "tool_call" }> })
 function ThinkingBlock({ text }: { text: string }) {
   const [open, setOpen] = useState(false);
   return (
-    <div className="my-1 rounded-md border border-dashed border-[#30363d]">
+    <div className="my-1 rounded-md border border-dashed border-strong">
       <button
-        className="flex w-full items-center gap-2 px-3 py-1 text-left text-[12px] text-[#7d8590] hover:bg-[#161b22]"
+        className="flex w-full items-center gap-2 px-3 py-1 text-left text-[12px] text-faint hover:bg-panel"
         onClick={() => setOpen(!open)}
       >
         {open ? "▾" : "▸"} 💭 思考过程
       </button>
       {open && (
-        <pre className="whitespace-pre-wrap px-3 pb-2 text-[12px] leading-relaxed text-[#8b949e]">
+        <pre className="whitespace-pre-wrap px-3 pb-2 text-[12px] leading-relaxed text-muted">
           {text}
         </pre>
       )}
@@ -75,7 +75,7 @@ function Parts({ parts, role }: { parts: Part[]; role: Message["role"] }) {
         if (p.type === "thinking") return <ThinkingBlock key={i} text={p.text} />;
         if (p.type === "meta")
           return (
-            <pre key={i} className="my-1 overflow-auto rounded bg-[#161b22] p-2 text-[11px] text-[#7d8590]">
+            <pre key={i} className="my-1 overflow-auto rounded bg-panel p-2 text-[11px] text-faint">
               {p.raw}
             </pre>
           );
@@ -101,7 +101,7 @@ function Parts({ parts, role }: { parts: Part[]; role: Message["role"] }) {
 function MessageItem({ msg }: { msg: Message }) {
   if (msg.role === "system") {
     return (
-      <div className="mx-auto max-w-[90%] rounded border border-dashed border-[#30363d] px-3 py-1.5 text-[12px] text-[#7d8590]">
+      <div className="mx-auto max-w-[90%] rounded border border-dashed border-strong px-3 py-1.5 text-[12px] text-faint">
         <Parts parts={msg.parts} role={msg.role} />
       </div>
     );
@@ -113,12 +113,12 @@ function MessageItem({ msg }: { msg: Message }) {
         className={`max-w-[85%] rounded-lg px-3.5 py-2 ${
           isUser
             ? "bg-[#1d4ed8]/25 border border-[#1d4ed8]/40"
-            : "bg-[#161b22] border border-[#30363d]"
+            : "bg-panel border border-strong"
         }`}
       >
         <Parts parts={msg.parts} role={msg.role} />
         {msg.timestamp && (
-          <div className="mt-1 text-right text-[10px] text-[#7d8590]">
+          <div className="mt-1 text-right text-[10px] text-faint">
             {formatTime(msg.timestamp)}
           </div>
         )}
@@ -147,22 +147,22 @@ export default function Transcript({ meta, messages, total, loading, hasMore, on
 
   if (!meta) {
     return (
-      <div className="flex flex-1 items-center justify-center text-[#7d8590]">
+      <div className="flex flex-1 items-center justify-center text-faint">
         {loading ? "加载中…" : "← 选择一个会话查看内容"}
       </div>
     );
   }
   return (
-    <div className="flex min-w-0 flex-1 flex-col bg-[#0d1117]">
-      <div className="border-b border-[#21262d] px-4 py-2.5">
+    <div className="flex min-w-0 flex-1 flex-col bg-bg">
+      <div className="border-b border-line px-4 py-2.5">
         <div className="flex items-center gap-2">
           <SourceBadge source={meta.source} />
           <span className="truncate font-medium">{meta.title || "(无标题)"}</span>
-          <span className="ml-auto shrink-0 text-[11px] text-[#7d8590]">
+          <span className="ml-auto shrink-0 text-[11px] text-faint">
             {shortProject(meta.project)} · {meta.messageCount} 条消息
           </span>
         </div>
-        <div className="mt-0.5 truncate text-[11px] text-[#7d8590]" title={meta.sourcePath}>
+        <div className="mt-0.5 truncate text-[11px] text-faint" title={meta.sourcePath}>
           {meta.sourcePath}
         </div>
       </div>
@@ -175,7 +175,7 @@ export default function Transcript({ meta, messages, total, loading, hasMore, on
           ))}
           {hasMore && (
             <button
-              className="mx-auto my-2 rounded-md border border-[#30363d] px-3 py-1 text-[12px] text-[#8b949e] hover:bg-[#161b22]"
+              className="mx-auto my-2 rounded-md border border-strong px-3 py-1 text-[12px] text-muted hover:bg-panel"
               onClick={onLoadMore}
             >
               加载更多消息({messages.length}/{total})

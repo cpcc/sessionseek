@@ -1,11 +1,60 @@
 @import "tailwindcss";
 
+/* ---- 主题变量:暗色为默认,html[data-theme="light"] 覆盖 ---- */
+:root {
+  --bg: #0d1117;
+  --panel: #161b22;
+  --panel-hover: #1c2128;
+  --line: #21262d;
+  --line-strong: #30363d;
+  --fg: #e6edf3;
+  --fg-soft: #c9d1d9;
+  --muted: #8b949e;
+  --faint: #7d8590;
+  --accent: #58a6ff;
+  --danger: #f85149;
+  --code-fg: #a5b4c3;
+  --mark-bg: rgba(245, 201, 77, 0.35);
+}
+
+:root[data-theme="light"] {
+  --bg: #ffffff;
+  --panel: #f6f8fa;
+  --panel-hover: #eef1f4;
+  --line: #e4e8ec;
+  --line-strong: #d0d7de;
+  --fg: #1f2328;
+  --fg-soft: #424a53;
+  --muted: #656d76;
+  --faint: #6e7781;
+  --accent: #0969da;
+  --danger: #cf222e;
+  --code-fg: #57606a;
+  --mark-bg: rgba(250, 204, 21, 0.5);
+}
+
+/* 映射为 Tailwind 语义 token:bg-bg / bg-panel / text-fg / border-line … */
+@theme inline {
+  --color-bg: var(--bg);
+  --color-panel: var(--panel);
+  --color-panel-hover: var(--panel-hover);
+  --color-line: var(--line);
+  --color-strong: var(--line-strong);
+  --color-fg: var(--fg);
+  --color-fg-soft: var(--fg-soft);
+  --color-muted: var(--muted);
+  --color-faint: var(--faint);
+  --color-accent: var(--accent);
+  --color-danger: var(--danger);
+  --color-code-fg: var(--code-fg);
+}
+
 html,
 body,
 #root {
   height: 100%;
-  background: #0d1117;
-  color: #e6edf3;
+  background: var(--bg);
+  color: var(--fg);
   font-family: -apple-system, "SF Pro Text", "PingFang SC", "Microsoft YaHei", sans-serif;
   font-size: 13px;
 }
@@ -15,7 +64,7 @@ body,
   height: 8px;
 }
 ::-webkit-scrollbar-thumb {
-  background: #30363d;
+  background: var(--line-strong);
   border-radius: 4px;
 }
 ::-webkit-scrollbar-track {
@@ -23,7 +72,7 @@ body,
 }
 
 mark {
-  background: rgba(245, 201, 77, 0.35);
+  background: var(--mark-bg);
   color: inherit;
   border-radius: 2px;
   padding: 0 1px;
@@ -57,16 +106,16 @@ mark {
   margin: 0.15em 0;
 }
 .markdown code {
-  background: #1c2128;
-  border: 1px solid #30363d;
+  background: var(--panel-hover);
+  border: 1px solid var(--line-strong);
   border-radius: 4px;
   padding: 0.05em 0.35em;
   font-family: "SF Mono", Menlo, monospace;
   font-size: 12px;
 }
 .markdown pre {
-  background: #161b22;
-  border: 1px solid #30363d;
+  background: var(--panel);
+  border: 1px solid var(--line-strong);
   border-radius: 6px;
   padding: 8px 10px;
   overflow-x: auto;
@@ -76,14 +125,15 @@ mark {
   background: none;
   border: none;
   padding: 0;
+  color: var(--code-fg);
 }
 .markdown a {
-  color: #58a6ff;
+  color: var(--accent);
 }
 .markdown blockquote {
-  border-left: 3px solid #30363d;
+  border-left: 3px solid var(--line-strong);
   padding-left: 0.8em;
-  color: #8b949e;
+  color: var(--muted);
   margin: 0.4em 0;
 }
 .markdown table {
@@ -92,6 +142,6 @@ mark {
 }
 .markdown th,
 .markdown td {
-  border: 1px solid #30363d;
+  border: 1px solid var(--line-strong);
   padding: 4px 8px;
 }
