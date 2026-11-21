@@ -851,8 +851,10 @@ mod tests {
         let s = crate::model::SessionStats::default();
         save_parsed(&conn, &meta, &[], Some(&s)).unwrap();
         meta.id = "claude:alive".into();
-        meta.source_path = "/tmp/sessionseek-alive-fixture.jsonl".into();
-        std::fs::write(&meta.source_path, "x").unwrap();
+        // 跨平台临时路径(Windows 下 /tmp 不存在)
+        let alive_path = std::env::temp_dir().join("sessionseek-alive-fixture.jsonl");
+        meta.source_path = alive_path.display().to_string();
+        std::fs::write(&alive_path, "x").unwrap();
         save_parsed(&conn, &meta, &[], Some(&s)).unwrap();
         meta.id = "zcode:dead".into();
         meta.source = Source::Zcode;
