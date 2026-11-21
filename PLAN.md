@@ -124,9 +124,16 @@ enum Part {
 
 | 里程碑 | 内容 | 状态 |
 |---|---|---|
-| **M1(本计划)** | 四家解析器 + 归一化索引 + 会话列表/回放,Windows 本机跑通 | ✅ 已完成(2026-11-21 于 macOS 实测:307 会话 / 37710 消息入库;claude 36 + codex 90 + zcode 171 + dsh 10) |
-| M2 | FTS5 trigram 中文全文搜索 + 统计页(ZCode `turn_usage`/`model_usage` 现成) | 规划中 |
+| M1 | 四家解析器 + 归一化索引 + 会话列表/回放 | ✅ 已完成(2026-11-21,89b4ee1) |
+| **M2** | FTS5 trigram 中文全文搜索 + 统计页 | ✅ 已完成(2026-11-21,e0a6ad4;实测 307 会话重建索引,FTS 37822 行,stats 全覆盖) |
 | M3 | notify 文件监听增量 + tauri-action 三平台 CI + 签名分发 | 规划中 |
+
+## M2 实测补充说明(2026-11-21)
+
+- **搜索**:messages_fts(trigram)索引 text/thinking/工具名+输入+输出;snippet 用 ⟦⟧ 标记,前端渲染高亮;查询 ≥3 字符;点击命中跳转到对应消息位置(按 seq 定位分页起点)。
+- **统计来源**(全部实测确认):claude=assistant 记录 `message.usage`;codex=`event_msg:token_count` 的 `total_token_usage`(累计值取最大,防重置);zcode=源库 `model_usage` 表一次全表聚合(主模型=input+output 最大者);dsh=`data.usage` 逐次累加。
+- **迁移**:meta 表 schema_version,v1→v2 清空重建;后续加表升版本即可沿用。
+- **注意**:codex/zcode 的 input_tokens 含缓存命中(prompt 口径),与 claude 的 input+cache 分列口径不同,对比时留意。
 
 ## M1 实测补充说明(2026-11-21,macOS arm64)
 
