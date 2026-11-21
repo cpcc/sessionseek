@@ -2,8 +2,10 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import type {
   MessagePage,
+  OverviewStats,
   ScanProgress,
   ScanSummary,
+  SearchHit,
   SessionPage,
   Source,
   Stats,
@@ -41,4 +43,24 @@ export function onScanProgress(cb: (p: ScanProgress) => void): Promise<UnlistenF
 
 export function onScanFinished(cb: (s: ScanSummary) => void): Promise<UnlistenFn> {
   return listen<ScanSummary>("scan-finished", (e) => cb(e.payload));
+}
+
+// ---- M2 ----
+
+export async function searchMessages(opts: {
+  query: string;
+  source?: Source | null;
+  project?: string | null;
+  limit?: number;
+}): Promise<SearchHit[]> {
+  return invoke("search_messages", {
+    query: opts.query,
+    source: opts.source ?? null,
+    project: opts.project ?? null,
+    limit: opts.limit ?? 80,
+  });
+}
+
+export async function getOverview(): Promise<OverviewStats> {
+  return invoke("get_overview");
 }

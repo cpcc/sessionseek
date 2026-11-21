@@ -77,6 +77,20 @@ impl Message {
     }
 }
 
+/// 会话级 token/调用统计(M2),各解析器从各自来源提取。
+#[derive(Serialize, Deserialize, Clone, Debug, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct SessionStats {
+    pub model: Option<String>,
+    pub input_tokens: i64,
+    pub output_tokens: i64,
+    pub reasoning_tokens: i64,
+    pub cache_read_tokens: i64,
+    pub cache_write_tokens: i64,
+    pub tool_calls: i64,
+    pub api_calls: i64,
+}
+
 /// 会话元数据(索引库 sessions 行的内存映像)。
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]

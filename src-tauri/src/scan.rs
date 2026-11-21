@@ -59,6 +59,7 @@ pub fn run_full_scan(app: &AppHandle) {
 
 fn scan_all(app: &AppHandle, db_path: &std::path::Path) -> Result<ScanSummary, String> {
     let conn = store::open(db_path).map_err(|e| e.to_string())?;
+    store::migrate(&conn).map_err(|e| e.to_string())?;
     let mut summary = ScanSummary::default();
     let started = std::time::Instant::now();
 
@@ -84,7 +85,7 @@ fn scan_all(app: &AppHandle, db_path: &std::path::Path) -> Result<ScanSummary, S
                     };
                     match parsed {
                         Ok(ps) => {
-                            if store::save_parsed(&conn, &ps.meta, &ps.messages).is_ok() {
+                            if store::save_parsed(&conn, &ps.meta, &ps.messages, Some(&ps.stats)).is_ok() {
                                 updated += 1;
                             }
                         }
@@ -118,6 +119,7 @@ fn scan_all(app: &AppHandle, db_path: &std::path::Path) -> Result<ScanSummary, S
         });
         match crate::parsers::zcode::open_source(&db) {
             Ok(src) => {
+                let stats_map = crate::parsers::zcode::collect_stats(&src);
                 let mut updated = 0usize;
                 let mut skipped = 0usize;
                 match crate::parsers::zcode::list_sessions(&src) {
@@ -131,8 +133,11 @@ fn scan_all(app: &AppHandle, db_path: &std::path::Path) -> Result<ScanSummary, S
                                 skipped += 1;
                             } else {
                                 match crate::parsers::zcode::parse(&src, zc, &cand) {
-                                    Ok(ps) => {
-                                        if store::save_parsed(&conn, &ps.meta, &ps.messages).is_ok() {
+                                    Ok(mut ps) => {
+                                        ps.stats = stats_map.get(&zc.local_id).cloned().unwrap_or_default();
+                                        if store::save_parsed(&conn, &ps.meta, &ps.messages, Some(&ps.stats))
+                                            .is_ok()
+                                        {
                                             updated += 1;
                                         }
                                     }

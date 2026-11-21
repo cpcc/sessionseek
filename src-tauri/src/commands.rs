@@ -127,3 +127,37 @@ pub fn scan_now(app: AppHandle) -> Result<bool, String> {
     std::thread::spawn(move || scan::run_full_scan(&app2));
     Ok(true)
 }
+
+// ---------------------------------------------------------------- M2
+
+#[tauri::command]
+pub async fn search_messages(
+    state: State<'_, AppState>,
+    query: String,
+    source: Option<String>,
+    project: Option<String>,
+    limit: Option<i64>,
+) -> Result<Vec<store::SearchHit>, String> {
+    if query.trim().chars().count() < 3 {
+        return Err("搜索词至少需要 3 个字符(trigram 索引限制)".into());
+    }
+    with_read_conn(&state, move |conn| {
+        store::search_messages(
+            conn,
+            query.trim(),
+            source.as_deref(),
+            project.as_deref(),
+            limit.unwrap_or(80),
+        )
+        .map_err(|e| e.to_string())
+    })
+    .await
+}
+
+#[tauri::command]
+pub async fn get_overview(state: State<'_, AppState>) -> Result<store::OverviewStats, String> {
+    with_read_conn(&state, move |conn| {
+        store::overview_stats(conn).map_err(|e| e.to_string())
+    })
+    .await
+}

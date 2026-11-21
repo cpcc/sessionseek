@@ -81,10 +81,36 @@ fn parse_lines(reader: Box<dyn BufRead>, candidate: &Candidate) -> std::io::Resu
                 if let Some(cwd) = payload.and_then(|p| p.get("cwd")).and_then(|c| c.as_str()) {
                     ps.meta.project = Some(cwd.to_string());
                 }
-                if ps.meta.title.is_none() {
-                    if let Some(id) = payload.and_then(|p| p.get("id")).and_then(|c| c.as_str()) {
-                        // 无标题时由 finish() 用首条用户消息兜底
-                        let _ = id;
+            }
+            "turn_context" => {
+                // 模型来源(每 turn 一条,取最后)
+                if let Some(model) = v.get("payload").and_then(|p| p.get("model")).and_then(|m| m.as_str()) {
+                    ps.stats.model = Some(model.to_string());
+                }
+            }
+            "event_msg" => {
+                // token_count.info.total_token_usage 为会话累计值,取最大(防 compaction 重置)
+                let payload = v.get("payload");
+                if payload.and_then(|p| p.get("type")).and_then(|t| t.as_str()) == Some("token_count") {
+                    ps.stats.api_calls += 1;
+                    if let Some(t) = payload
+                        .and_then(|p| p.get("info"))
+                        .and_then(|i| i.get("total_token_usage"))
+                    {
+                        ps.stats.input_tokens = ps.stats.input_tokens.max(
+                            t.get("input_tokens").and_then(|x| x.as_i64()).unwrap_or(0),
+                        );
+                        ps.stats.output_tokens = ps.stats.output_tokens.max(
+                            t.get("output_tokens").and_then(|x| x.as_i64()).unwrap_or(0),
+                        );
+                        ps.stats.reasoning_tokens = ps.stats.reasoning_tokens.max(
+                            t.get("reasoning_output_tokens")
+                                .and_then(|x| x.as_i64())
+                                .unwrap_or(0),
+                        );
+                        ps.stats.cache_read_tokens = ps.stats.cache_read_tokens.max(
+                            t.get("cached_input_tokens").and_then(|x| x.as_i64()).unwrap_or(0),
+                        );
                     }
                 }
             }
@@ -133,6 +159,7 @@ fn parse_lines(reader: Box<dyn BufRead>, candidate: &Candidate) -> std::io::Resu
                             output: None,
                             status: "running".into(),
                         });
+                        ps.stats.tool_calls += 1;
                         msg.seq = ps.messages.len() as i64 + 1;
                         if !call_id.is_empty() {
                             pending.insert(call_id, (ps.messages.len(), idx));

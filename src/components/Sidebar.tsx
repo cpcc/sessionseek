@@ -10,6 +10,11 @@ interface Props {
   scanning: boolean;
   scanInfo: string;
   onRescan: () => void;
+  searchValue: string;
+  onSearchValueChange: (v: string) => void;
+  onSearchSubmit: () => void;
+  statsViewOpen: boolean;
+  onToggleStatsView: () => void;
 }
 
 export default function Sidebar({
@@ -21,6 +26,11 @@ export default function Sidebar({
   scanning,
   scanInfo,
   onRescan,
+  searchValue,
+  onSearchValueChange,
+  onSearchSubmit,
+  statsViewOpen,
+  onToggleStatsView,
 }: Props) {
   const countOf = (s: Source) => stats?.sources.find((x) => x.source === s)?.count ?? 0;
   const total = stats?.sources.reduce((acc, x) => acc + x.count, 0) ?? 0;
@@ -30,6 +40,19 @@ export default function Sidebar({
       <div className="px-4 pt-4 pb-2">
         <div className="text-[15px] font-semibold tracking-wide">SessionSeek</div>
         <div className="mt-0.5 text-[11px] text-[#7d8590]">本地 AI 会话查看器</div>
+      </div>
+
+      <div className="px-3 pb-2">
+        <input
+          type="text"
+          value={searchValue}
+          onChange={(e) => onSearchValueChange(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") onSearchSubmit();
+          }}
+          placeholder="全文搜索(≥3 字符,回车)"
+          className="w-full rounded-md border border-[#30363d] bg-[#161b22] px-2.5 py-1.5 text-[12px] outline-none placeholder:text-[#7d8590] focus:border-[#58a6ff]"
+        />
       </div>
 
       <div className="px-3 pb-2">
@@ -94,13 +117,24 @@ export default function Sidebar({
         <div className="mb-1.5 text-[11px] text-[#7d8590]">
           {scanning ? `⏳ 索引中… ${scanInfo}` : `✓ 索引就绪 ${scanInfo}`}
         </div>
-        <button
-          className="w-full rounded-md border border-[#30363d] py-1 text-[12px] hover:bg-[#161b22] disabled:opacity-50"
-          onClick={onRescan}
-          disabled={scanning}
-        >
-          重新扫描
-        </button>
+        <div className="flex gap-2">
+          <button
+            className="flex-1 rounded-md border border-[#30363d] py-1 text-[12px] hover:bg-[#161b22] disabled:opacity-50"
+            onClick={onRescan}
+            disabled={scanning}
+          >
+            重新扫描
+          </button>
+          <button
+            className={`rounded-md border border-[#30363d] px-2.5 py-1 text-[12px] hover:bg-[#161b22] ${
+              statsViewOpen ? "border-[#58a6ff] text-[#58a6ff]" : ""
+            }`}
+            onClick={onToggleStatsView}
+            title="统计总览"
+          >
+            📊
+          </button>
+        </div>
       </div>
     </aside>
   );

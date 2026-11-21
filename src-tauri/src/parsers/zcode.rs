@@ -55,6 +55,66 @@ pub struct ZcodeCandidate {
     pub time_updated: i64,
 }
 
+/// 一次性聚合全部会话的 token/调用统计(model_usage 表按 session+model 分组)。
+/// 单条查询全表聚合一次,避免逐会话查询;老版本无此表时返回空。
+/// 主模型 = 该会话内 input+output 用量最大的 model。
+pub fn collect_stats(conn: &Connection) -> std::collections::HashMap<String, crate::model::SessionStats> {
+    let Ok(mut stmt) = conn.prepare(
+        "SELECT session_id, model_id,
+                COALESCE(SUM(input_tokens),0), COALESCE(SUM(output_tokens),0),
+                COALESCE(SUM(reasoning_tokens),0),
+                COALESCE(SUM(cache_creation_input_tokens),0), COALESCE(SUM(cache_read_input_tokens),0),
+                COALESCE(SUM(tool_call_count),0), COUNT(*)
+         FROM model_usage GROUP BY session_id, model_id",
+    ) else {
+        return std::collections::HashMap::new();
+    };
+    let rows = stmt
+        .query_map([], |r| {
+            Ok((
+                r.get::<_, String>(0)?,
+                r.get::<_, Option<String>>(1)?,
+                r.get::<_, i64>(2)?,
+                r.get::<_, i64>(3)?,
+                r.get::<_, i64>(4)?,
+                r.get::<_, i64>(5)?,
+                r.get::<_, i64>(6)?,
+                r.get::<_, i64>(7)?,
+                r.get::<_, i64>(8)?,
+            ))
+        })
+        .and_then(|rows| rows.collect::<Result<Vec<_>, _>>());
+    let Ok(rows) = rows else {
+        return std::collections::HashMap::new();
+    };
+
+    // sid -> (累计统计, (当前主模型, 其用量))
+    let mut acc: std::collections::HashMap<String, (crate::model::SessionStats, (Option<String>, i64))> =
+        std::collections::HashMap::new();
+    for (sid, model, input, output, reasoning, cache_w, cache_r, tools, calls) in rows {
+        let e = acc.entry(sid).or_insert_with(|| (crate::model::SessionStats::default(), (None, -1)));
+        let st = &mut e.0;
+        st.input_tokens += input;
+        st.output_tokens += output;
+        st.reasoning_tokens += reasoning;
+        st.cache_write_tokens += cache_w;
+        st.cache_read_tokens += cache_r;
+        st.tool_calls += tools;
+        st.api_calls += calls;
+        let usage = input + output;
+        if usage > e.1 .1 {
+            e.1 = (model, usage);
+        }
+    }
+
+    acc.into_iter()
+        .map(|(sid, (mut st, (model, _)))| {
+            st.model = model;
+            (sid, st)
+        })
+        .collect()
+}
+
 pub fn list_sessions(conn: &Connection) -> Result<Vec<ZcodeCandidate>, rusqlite::Error> {
     let mut stmt = conn.prepare(
         "SELECT id, title, directory, time_created, time_updated

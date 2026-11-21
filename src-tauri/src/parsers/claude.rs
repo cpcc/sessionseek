@@ -79,6 +79,26 @@ pub fn parse(candidate: &Candidate) -> std::io::Result<ParsedSession> {
         let msg_idx = ps.messages.len();
         let mut msg = crate::model::Message::new(role, ts);
 
+        // 统计:assistant 消息携带 usage + model
+        if role == Role::Assistant {
+            ps.stats.api_calls += 1;
+            if let Some(model) = v.get("message").and_then(|m| m.get("model")).and_then(|m| m.as_str()) {
+                ps.stats.model = Some(model.to_string());
+            }
+            if let Some(u) = v.get("message").and_then(|m| m.get("usage")) {
+                ps.stats.input_tokens += u.get("input_tokens").and_then(|x| x.as_i64()).unwrap_or(0);
+                ps.stats.output_tokens += u.get("output_tokens").and_then(|x| x.as_i64()).unwrap_or(0);
+                ps.stats.cache_write_tokens += u
+                    .get("cache_creation_input_tokens")
+                    .and_then(|x| x.as_i64())
+                    .unwrap_or(0);
+                ps.stats.cache_read_tokens += u
+                    .get("cache_read_input_tokens")
+                    .and_then(|x| x.as_i64())
+                    .unwrap_or(0);
+            }
+        }
+
         match content {
             Value::String(text) => {
                 if role == Role::User && !text.trim().is_empty() {
@@ -115,6 +135,7 @@ pub fn parse(candidate: &Candidate) -> std::io::Result<ParsedSession> {
                                 output: None,
                                 status: "running".into(),
                             });
+                            ps.stats.tool_calls += 1;
                             if !call_id.is_empty() {
                                 pending.insert(call_id, (msg_idx, idx));
                             }
@@ -207,5 +228,12 @@ mod tests {
         assert_eq!(status, "completed");
         // 标题来自 summary 或首个用户消息
         assert!(ps.meta.title.is_some());
+        // 统计:3 条 assistant 记录(每条 usage: input 636 / output 812 / cache_read 10048)
+        assert_eq!(ps.stats.api_calls, 3);
+        assert_eq!(ps.stats.input_tokens, 636 * 3);
+        assert_eq!(ps.stats.output_tokens, 812 * 3);
+        assert_eq!(ps.stats.cache_read_tokens, 10048 * 3);
+        assert_eq!(ps.stats.model.as_deref(), Some("hy4-free"));
+        assert_eq!(ps.stats.tool_calls, 1); // fixture 仅保留配对的那条 tool_use
     }
 }

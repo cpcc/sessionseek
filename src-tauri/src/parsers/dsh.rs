@@ -118,6 +118,11 @@ fn parse_lines(reader: Box<dyn BufRead>, candidate: &Candidate) -> std::io::Resu
                     ps.meta.project = Some(cwd.to_string());
                 }
             }
+            "model/selection" => {
+                if let Some(m) = v.get("data").and_then(|d| d.get("model")).and_then(|m| m.as_str()) {
+                    ps.stats.model = Some(m.to_string());
+                }
+            }
             "session/title" => {
                 if let Some(t) = v.get("data").and_then(|d| d.get("title")).and_then(|t| t.as_str()) {
                     ps.meta.title = Some(t.to_string());
@@ -141,6 +146,13 @@ fn parse_lines(reader: Box<dyn BufRead>, candidate: &Candidate) -> std::io::Resu
                 }
             }
             "assistant/message" => {
+                ps.stats.api_calls += 1;
+                // data.usage: {inputTokens, outputTokens, totalTokens, cacheReadTokens}(逐次值)
+                if let Some(u) = v.get("data").and_then(|d| d.get("usage")) {
+                    ps.stats.input_tokens += u.get("inputTokens").and_then(|x| x.as_i64()).unwrap_or(0);
+                    ps.stats.output_tokens += u.get("outputTokens").and_then(|x| x.as_i64()).unwrap_or(0);
+                    ps.stats.cache_read_tokens += u.get("cacheReadTokens").and_then(|x| x.as_i64()).unwrap_or(0);
+                }
                 let mut msg = crate::model::Message::new(Role::Assistant, ts);
                 let content = v
                     .get("data")
@@ -214,6 +226,7 @@ fn parse_lines(reader: Box<dyn BufRead>, candidate: &Candidate) -> std::io::Resu
                     output: None,
                     status: "running".into(),
                 });
+                ps.stats.tool_calls += 1;
                 msg.seq = ps.messages.len() as i64 + 1;
                 if !call_id.is_empty() {
                     pending.insert(call_id, (ps.messages.len(), idx));

@@ -3,14 +3,31 @@ import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-quer
 import Sidebar from "./components/Sidebar";
 import SessionList from "./components/SessionList";
 import Transcript from "./components/Transcript";
-import { getStats, listSessions, getSession, onScanFinished, onScanProgress, scanNow } from "./lib/ipc";
-import { SOURCE_LABEL, type ScanProgress, type Source } from "./types";
+import SearchResults from "./components/SearchResults";
+import StatsView from "./components/StatsView";
+import {
+  getStats,
+  listSessions,
+  getSession,
+  searchMessages,
+  onScanFinished,
+  onScanProgress,
+  scanNow,
+} from "./lib/ipc";
+import { SOURCE_LABEL, type ScanProgress, type SearchHit, type Source } from "./types";
+
+const MSG_PAGE = 100;
 
 export default function App() {
   const queryClient = useQueryClient();
   const [activeSource, setActiveSource] = useState<Source | null>(null);
   const [activeProject, setActiveProject] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [startOffset, setStartOffset] = useState(0);
+  const [targetSeq, setTargetSeq] = useState<number | null>(null);
+  const [searchValue, setSearchValue] = useState("");
+  const [submittedQuery, setSubmittedQuery] = useState<string | null>(null);
+  const [view, setView] = useState<"session" | "stats">("session");
   const [scanning, setScanning] = useState(false);
   const [scanInfo, setScanInfo] = useState("");
   const initialized = useRef(false);
@@ -29,6 +46,8 @@ export default function App() {
       queryClient.invalidateQueries({ queryKey: ["stats"] });
       queryClient.invalidateQueries({ queryKey: ["sessions"] });
       queryClient.invalidateQueries({ queryKey: ["messages"] });
+      queryClient.invalidateQueries({ queryKey: ["overview"] });
+      queryClient.invalidateQueries({ queryKey: ["search"] });
     }).then((un) => unlistens.push(un));
     return () => unlistens.forEach((u) => u());
   }, [queryClient]);
@@ -52,6 +71,13 @@ export default function App() {
     scanNow();
   }, []);
 
+  const selectSession = useCallback((id: string, seq?: number) => {
+    setSelectedId(id);
+    setTargetSeq(seq ?? null);
+    setStartOffset(seq ? Math.max(Math.floor((seq - 1) / MSG_PAGE) * MSG_PAGE, 0) : 0);
+    setView("session");
+  }, []);
+
   // ---- 数据 ----
   const statsQ = useQuery({ queryKey: ["stats", activeSource], queryFn: () => getStats(activeSource) });
 
@@ -67,14 +93,22 @@ export default function App() {
   });
 
   const msgsQ = useInfiniteQuery({
-    queryKey: ["messages", selectedId],
-    queryFn: ({ pageParam }) => getSession(selectedId!, pageParam as number, 100),
+    queryKey: ["messages", selectedId, startOffset],
+    queryFn: ({ pageParam }) => getSession(selectedId!, startOffset + (pageParam as number), MSG_PAGE),
     initialPageParam: 0,
     getNextPageParam: (last, all) => {
-      const loaded = all.reduce((a, p) => a + p.items.length, 0);
-      return loaded < last.total ? loaded : undefined;
+      const loaded = startOffset + all.reduce((a, p) => a + p.items.length, 0);
+      return loaded < last.total ? loaded - startOffset : undefined;
     },
     enabled: !!selectedId,
+  });
+
+  const searchQ = useQuery({
+    queryKey: ["search", submittedQuery, activeSource, activeProject],
+    queryFn: () =>
+      searchMessages({ query: submittedQuery!, source: activeSource, project: activeProject }),
+    enabled: !!submittedQuery,
+    staleTime: 10_000,
   });
 
   const sessions = useMemo(
@@ -85,6 +119,26 @@ export default function App() {
     () => msgsQ.data?.pages.flatMap((p) => p.items) ?? [],
     [msgsQ.data],
   );
+
+  const showSearch = submittedQuery !== null;
+  const searching = searchQ.isFetching;
+
+  const openHit = useCallback(
+    (hit: SearchHit) => {
+      selectSession(hit.sessionId, hit.seq);
+    },
+    [selectSession],
+  );
+
+  const handleSearchSubmit = useCallback(() => {
+    const q = searchValue.trim();
+    if (q.length === 0) {
+      setSubmittedQuery(null);
+      return;
+    }
+    if ([...q].length < 3) return; // trigram 最少 3 字符
+    setSubmittedQuery(q);
+  }, [searchValue]);
 
   // 选中会话被过滤/消失时清理选中态
   useEffect(() => {
@@ -111,24 +165,49 @@ export default function App() {
         scanning={scanning}
         scanInfo={scanInfo}
         onRescan={handleRescan}
+        searchValue={searchValue}
+        onSearchValueChange={(v) => {
+          setSearchValue(v);
+          if (v === "") setSubmittedQuery(null);
+        }}
+        onSearchSubmit={handleSearchSubmit}
+        statsViewOpen={view === "stats"}
+        onToggleStatsView={() => setView(view === "stats" ? "session" : "stats")}
       />
-      <SessionList
-        sessions={sessions}
-        selectedId={selectedId}
-        onSelect={setSelectedId}
-        hasMore={sessionsQ.hasNextPage}
-        total={sessionsQ.data?.pages[0]?.total ?? 0}
-        onLoadMore={() => sessionsQ.fetchNextPage()}
-        loading={sessionsQ.isLoading}
-      />
-      <Transcript
-        meta={msgsQ.data?.pages[0]?.meta}
-        messages={messages}
-        total={msgsQ.data?.pages[0]?.total ?? 0}
-        loading={msgsQ.isLoading}
-        hasMore={msgsQ.hasNextPage}
-        onLoadMore={() => msgsQ.fetchNextPage()}
-      />
+
+      {showSearch ? (
+        <SearchResults
+          hits={searchQ.data ?? []}
+          loading={searching}
+          error={searchQ.error ? String(searchQ.error) : null}
+          query={submittedQuery ?? ""}
+          onOpenHit={openHit}
+        />
+      ) : (
+        <SessionList
+          sessions={sessions}
+          selectedId={selectedId}
+          onSelect={(id) => selectSession(id)}
+          hasMore={sessionsQ.hasNextPage}
+          total={sessionsQ.data?.pages[0]?.total ?? 0}
+          onLoadMore={() => sessionsQ.fetchNextPage()}
+          loading={sessionsQ.isLoading}
+        />
+      )}
+
+      {view === "stats" ? (
+        <StatsView />
+      ) : (
+        <Transcript
+          meta={msgsQ.data?.pages[0]?.meta}
+          messages={messages}
+          total={msgsQ.data?.pages[0]?.total ?? 0}
+          loading={msgsQ.isLoading}
+          hasMore={msgsQ.hasNextPage}
+          onLoadMore={() => msgsQ.fetchNextPage()}
+          targetSeq={targetSeq}
+        />
+      )}
     </div>
   );
 }

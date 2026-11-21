@@ -24,6 +24,7 @@ pub struct Candidate {
 pub struct ParsedSession {
     pub meta: SessionMeta,
     pub messages: Vec<Message>,
+    pub stats: crate::model::SessionStats,
 }
 
 impl ParsedSession {
@@ -43,6 +44,7 @@ impl ParsedSession {
                 is_sidechain: false,
             },
             messages: Vec::new(),
+            stats: crate::model::SessionStats::default(),
         }
     }
 

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { formatTime, shortProject, SourceBadge } from "./bits";
@@ -134,9 +134,17 @@ interface Props {
   loading: boolean;
   hasMore: boolean;
   onLoadMore: () => void;
+  /** 跳转目标消息序号(搜索结果点击时),加载后滚动定位 */
+  targetSeq?: number | null;
 }
 
-export default function Transcript({ meta, messages, total, loading, hasMore, onLoadMore }: Props) {
+export default function Transcript({ meta, messages, total, loading, hasMore, onLoadMore, targetSeq }: Props) {
+  useEffect(() => {
+    if (targetSeq == null || messages.length === 0) return;
+    const el = document.querySelector(`[data-seq="${targetSeq}"]`);
+    el?.scrollIntoView({ block: "center" });
+  }, [targetSeq, messages.length, meta?.id]);
+
   if (!meta) {
     return (
       <div className="flex flex-1 items-center justify-center text-[#7d8590]">
@@ -161,7 +169,9 @@ export default function Transcript({ meta, messages, total, loading, hasMore, on
       <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
         <div className="mx-auto flex max-w-[860px] flex-col gap-2.5">
           {messages.map((m) => (
-            <MessageItem key={m.seq} msg={m} />
+            <div key={m.seq} data-seq={m.seq}>
+              <MessageItem msg={m} />
+            </div>
           ))}
           {hasMore && (
             <button

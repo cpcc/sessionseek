@@ -25,9 +25,12 @@ pub fn run() {
                 .expect("app_data_dir unavailable");
             std::fs::create_dir_all(&dir)?;
             let db_path = dir.join("index.db");
-            // 建库建表(幂等),后续线程各自连接
-            let conn = store::open(&db_path)?;
-            let _ = conn.close();
+            // 建库建表 + 升级迁移(幂等),后续线程各自连接
+            {
+                let conn = store::open(&db_path)?;
+                store::migrate(&conn)?;
+                let _ = conn.close();
+            }
 
             app.manage(AppState {
                 db_path,
@@ -45,6 +48,8 @@ pub fn run() {
             commands::get_session,
             commands::get_stats,
             commands::scan_now,
+            commands::search_messages,
+            commands::get_overview,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

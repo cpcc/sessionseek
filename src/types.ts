@@ -73,6 +73,57 @@ export interface ScanSummary {
   durationMs: number;
 }
 
+// ---- M2:搜索 + 统计 ----
+
+export interface SearchHit {
+  sessionId: string;
+  seq: number;
+  snippet: string;
+  role: Role;
+  timestamp?: number;
+  title?: string;
+  source: Source;
+  project?: string;
+}
+
+export interface SourceStat {
+  source: Source;
+  sessions: number;
+  messages: number;
+  inputTokens: number;
+  outputTokens: number;
+  cacheReadTokens: number;
+  toolCalls: number;
+  apiCalls: number;
+}
+
+export interface ModelStat {
+  model: string;
+  apiCalls: number;
+  inputTokens: number;
+  outputTokens: number;
+  cacheReadTokens: number;
+}
+
+export interface DayCount {
+  day: string;
+  count: number;
+}
+
+export interface OverviewStats {
+  sessions: number;
+  messages: number;
+  inputTokens: number;
+  outputTokens: number;
+  reasoningTokens: number;
+  cacheReadTokens: number;
+  toolCalls: number;
+  apiCalls: number;
+  bySource: SourceStat[];
+  byModel: ModelStat[];
+  byDay: DayCount[];
+}
+
 export const SOURCE_ORDER: Source[] = ["claude", "codex", "zcode", "dsh"];
 
 export const SOURCE_LABEL: Record<Source, string> = {
