@@ -125,8 +125,20 @@ enum Part {
 | 里程碑 | 内容 | 状态 |
 |---|---|---|
 | M1 | 四家解析器 + 归一化索引 + 会话列表/回放 | ✅ 已完成(2026-11-21,89b4ee1) |
-| **M2** | FTS5 trigram 中文全文搜索 + 统计页 | ✅ 已完成(2026-11-21,e0a6ad4;实测 307 会话重建索引,FTS 37822 行,stats 全覆盖) |
-| M3 | notify 文件监听增量 + tauri-action 三平台 CI + 签名分发 | 规划中 |
+| M2 | FTS5 trigram 中文全文搜索 + 统计页 | ✅ 已完成(2026-11-21,e0a6ad4;实测 307 会话重建索引,FTS 37822 行,stats 全覆盖) |
+| **M3** | notify 文件监听增量 + 三平台 CI 打包 | ✅ 已完成(2026-11-21;watcher 实测 25s 内自动跟进变更) |
+
+## M3 实测补充说明(2026-11-21)
+
+- **watcher**:notify 9.x watch 四个根目录(claude/codex/dsh 递归 + zcode db 目录),3s 静默防抖;
+  扫描期间的新变更经 `pending_scan` 补扫,与手动"重新扫描"共用同一扫描锁。
+- **孤儿清理**:文件型来源检查 source_path 是否仍存在;ZCode 比对源库存活集合(time_deleted 也覆盖),
+  消失的会话连同 messages/fts/stats 一并删除,Summary 增加 `removed` 计数。
+- **CI**:`ci.yml`(三平台 cargo test + tsc + vite build,注意先 build 前端——tauri codegen 需要 dist/)
+  + `release.yml`(v* 标签 → tauri-action 三平台构建 → 草稿 Release;签名 secrets 留注释待接)。
+- **注意事项**:log crate 未接后端,日志输出当前是 no-op(排查时可加 env_logger);
+  CI/发布需要先把仓库推到 GitHub 并配置 secrets(本仓库暂无 remote)。
+- macOS 打包签名/公证:初期发未签名包,首次打开需右键 → 打开。
 
 ## M2 实测补充说明(2026-11-21)
 

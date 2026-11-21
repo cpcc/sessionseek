@@ -161,6 +161,54 @@ pub fn session_unchanged(
     Ok(ok)
 }
 
+/// 删除一个会话的全部索引数据(元数据/消息/FTS/统计)。
+pub fn delete_session(conn: &Connection, id: &str) -> Result<(), rusqlite::Error> {
+    conn.execute("DELETE FROM messages WHERE session_id = ?1", params![id])?;
+    conn.execute("DELETE FROM messages_fts WHERE session_id = ?1", params![id])?;
+    conn.execute("DELETE FROM session_stats WHERE session_id = ?1", params![id])?;
+    conn.execute("DELETE FROM sessions WHERE id = ?1", params![id])?;
+    Ok(())
+}
+
+/// 文件型来源(claude/codex/dsh):源文件已从磁盘消失的会话,从索引中移除。
+pub fn cleanup_missing_files(conn: &Connection, source: &str) -> Result<usize, rusqlite::Error> {
+    let mut stmt = conn.prepare("SELECT id, source_path FROM sessions WHERE source = ?1")?;
+    let rows: Vec<(String, String)> = stmt
+        .query_map(params![source], |r| Ok((r.get(0)?, r.get(1)?)))?
+        .collect::<Result<Vec<_>, _>>()?;
+    drop(stmt);
+    let mut removed = 0;
+    for (id, path) in rows {
+        if std::fs::metadata(&path).is_err() {
+            delete_session(conn, &id)?;
+            removed += 1;
+        }
+    }
+    Ok(removed)
+}
+
+/// zcode:索引中存在但源库已不存在的会话(如 time_deleted),从索引中移除。
+pub fn cleanup_missing_zcode(
+    conn: &Connection,
+    live_local_ids: &std::collections::HashSet<String>,
+) -> Result<usize, rusqlite::Error> {
+    let mut stmt = conn.prepare("SELECT id FROM sessions WHERE source = 'zcode'")?;
+    let ids: Vec<String> = stmt
+        .query_map([], |r| r.get(0))?
+        .collect::<Result<Vec<_>, _>>()?;
+    drop(stmt);
+    let mut removed = 0;
+    for full_id in ids {
+        // id 形如 "zcode:<local_id>"
+        let Some(local) = full_id.strip_prefix("zcode:") else { continue };
+        if !live_local_ids.contains(local) {
+            delete_session(conn, &full_id)?;
+            removed += 1;
+        }
+    }
+    Ok(removed)
+}
+
 /// 写入一个解析完成的会话(元数据 + 全量消息 + FTS + 统计,单事务)。
 pub fn save_parsed(
     conn: &Connection,
@@ -782,5 +830,43 @@ mod tests {
         assert_eq!(ov.sessions, 2);
         assert_eq!(ov.messages, 3);
         assert_eq!(ov.by_source.len(), 2);
+    }
+
+    #[test]
+    fn cleanup_missing_sessions() {
+        let (_dir, conn) = temp_db();
+        let mut meta = SessionMeta {
+            id: "claude:gone".into(),
+            source: Source::Claude,
+            project: None,
+            title: None,
+            started_at: None,
+            updated_at: None,
+            message_count: 0,
+            source_path: "/nonexistent/path/abc.jsonl".into(),
+            file_size: 1,
+            file_mtime: 1,
+            is_sidechain: false,
+        };
+        let s = crate::model::SessionStats::default();
+        save_parsed(&conn, &meta, &[], Some(&s)).unwrap();
+        meta.id = "claude:alive".into();
+        meta.source_path = "/tmp/sessionseek-alive-fixture.jsonl".into();
+        std::fs::write(&meta.source_path, "x").unwrap();
+        save_parsed(&conn, &meta, &[], Some(&s)).unwrap();
+        meta.id = "zcode:dead".into();
+        meta.source = Source::Zcode;
+        meta.source_path = "/db.sqlite".into();
+        save_parsed(&conn, &meta, &[], Some(&s)).unwrap();
+
+        // 文件型:gone 清除,alive 保留
+        assert_eq!(cleanup_missing_files(&conn, "claude").unwrap(), 1);
+        assert!(get_session_meta(&conn, "claude:alive").unwrap().is_some());
+        assert!(get_session_meta(&conn, "claude:gone").unwrap().is_none());
+
+        // zcode:不在存活集合的清除
+        let live: std::collections::HashSet<String> = ["alive_local"].into_iter().map(String::from).collect();
+        assert_eq!(cleanup_missing_zcode(&conn, &live).unwrap(), 1);
+        assert!(get_session_meta(&conn, "zcode:dead").unwrap().is_none());
     }
 }

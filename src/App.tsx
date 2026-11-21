@@ -42,7 +42,10 @@ export default function App() {
     }).then((un) => unlistens.push(un));
     onScanFinished((s) => {
       setScanning(false);
-      setScanInfo(`(更新 ${s.claude + s.codex + s.zcode + s.dsh},耗时 ${(s.durationMs / 1000).toFixed(1)}s)`);
+      const removed = s.removed > 0 ? `,清理 ${s.removed}` : "";
+      setScanInfo(
+        `(更新 ${s.claude + s.codex + s.zcode + s.dsh}${removed},耗时 ${(s.durationMs / 1000).toFixed(1)}s)`,
+      );
       queryClient.invalidateQueries({ queryKey: ["stats"] });
       queryClient.invalidateQueries({ queryKey: ["sessions"] });
       queryClient.invalidateQueries({ queryKey: ["messages"] });

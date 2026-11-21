@@ -3,16 +3,16 @@ mod model;
 mod parsers;
 mod scan;
 mod store;
+mod watcher;
 
 use std::sync::atomic::AtomicBool;
-use std::sync::Mutex;
 use tauri::Manager;
 
 pub struct AppState {
     pub db_path: std::path::PathBuf,
     pub scanning: AtomicBool,
-    // 占位:预留共享连接,M1 各命令自开只读连接
-    pub _unused: Mutex<()>,
+    /// watcher 置位:静默期内有变更,待扫描(扫描期间的新变更也会置位,扫完补扫)
+    pub pending_scan: AtomicBool,
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -35,12 +35,14 @@ pub fn run() {
             app.manage(AppState {
                 db_path,
                 scanning: AtomicBool::new(false),
-                _unused: Mutex::new(()),
+                pending_scan: AtomicBool::new(false),
             });
 
             // 启动即后台首扫,进度经 scan-progress / scan-finished 事件推送
             let handle = app.handle().clone();
             scan::run_full_scan(&handle);
+            // M3:监听 harness 目录变更,静默后自动增量扫描
+            watcher::start(app.handle().clone());
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![

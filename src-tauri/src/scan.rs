@@ -4,6 +4,7 @@ use crate::model::Source;
 use crate::store;
 use crate::AppState;
 use serde::Serialize;
+use std::time::Duration;
 use tauri::{AppHandle, Emitter, Manager};
 
 #[derive(Serialize, Clone, Debug)]
@@ -23,10 +24,12 @@ pub struct ScanSummary {
     pub zcode: usize,
     pub dsh: usize,
     pub skipped: usize,
+    /// 扫描中发现已从磁盘消失的会话数
+    pub removed: usize,
     pub duration_ms: u64,
 }
 
-/// 全量扫描入口(setup 启动线程 / scan_now 命令都会走到这里)。
+/// 全量扫描入口(setup 启动线程 / scan_now 命令都会走到这里)。非阻塞。
 pub fn run_full_scan(app: &AppHandle) {
     let state = app.state::<AppState>();
     if state.scanning.swap(true, std::sync::atomic::Ordering::SeqCst) {
@@ -35,26 +38,39 @@ pub fn run_full_scan(app: &AppHandle) {
     let db_path = state.db_path.clone();
     let app = app.clone();
     std::thread::spawn(move || {
-        let started = std::time::Instant::now();
-        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            scan_all(&app, &db_path)
-        }));
-        let summary = match result {
-            Ok(Ok(s)) => s,
-            Ok(Err(e)) => {
-                log::error!("scan failed: {e}");
-                ScanSummary { duration_ms: started.elapsed().as_millis() as u64, ..Default::default() }
-            }
-            Err(_) => {
-                log::error!("scan panicked");
-                ScanSummary { duration_ms: started.elapsed().as_millis() as u64, ..Default::default() }
-            }
-        };
+        scan_locked(&app, &db_path);
         let state = app.state::<AppState>();
         state.scanning.store(false, std::sync::atomic::Ordering::SeqCst);
-        let _ = app.emit("scan-finished", &summary);
-        log::info!("scan done in {}ms: {:?}", summary.duration_ms, summary);
     });
+}
+
+/// 同步扫描:等待获取扫描锁 → 执行 → 释放。watcher 防抖线程使用。
+pub fn scan_blocking(app: &AppHandle) {
+    let state = app.state::<AppState>();
+    while state.scanning.swap(true, std::sync::atomic::Ordering::SeqCst) {
+        std::thread::sleep(Duration::from_millis(400));
+    }
+    let db_path = state.db_path.clone();
+    scan_locked(app, &db_path);
+    state.scanning.store(false, std::sync::atomic::Ordering::SeqCst);
+}
+
+fn scan_locked(app: &AppHandle, db_path: &std::path::Path) {
+    let started = std::time::Instant::now();
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| scan_all(app, db_path)));
+    let summary = match result {
+        Ok(Ok(s)) => s,
+        Ok(Err(e)) => {
+            log::error!("scan failed: {e}");
+            ScanSummary { duration_ms: started.elapsed().as_millis() as u64, ..Default::default() }
+        }
+        Err(_) => {
+            log::error!("scan panicked");
+            ScanSummary { duration_ms: started.elapsed().as_millis() as u64, ..Default::default() }
+        }
+    };
+    let _ = app.emit("scan-finished", &summary);
+    log::info!("scan done in {}ms: {:?}", summary.duration_ms, summary);
 }
 
 fn scan_all(app: &AppHandle, db_path: &std::path::Path) -> Result<ScanSummary, String> {
@@ -100,6 +116,11 @@ fn scan_all(app: &AppHandle, db_path: &std::path::Path) -> Result<ScanSummary, S
                 );
             }
         }
+        // 清理磁盘上已消失的会话(如 Claude 30 天自动清理)
+        match store::cleanup_missing_files(&conn, source) {
+            Ok(n) => summary.removed += n,
+            Err(e) => log::warn!("cleanup {source} failed: {e}"),
+        }
         match source {
             "claude" => summary.claude = updated,
             "codex" => summary.codex = updated,
@@ -125,6 +146,8 @@ fn scan_all(app: &AppHandle, db_path: &std::path::Path) -> Result<ScanSummary, S
                 match crate::parsers::zcode::list_sessions(&src) {
                     Ok(zcands) => {
                         let total = zcands.len();
+                        let live_ids: std::collections::HashSet<String> =
+                            zcands.iter().map(|c| c.local_id.clone()).collect();
                         for (i, zc) in zcands.iter().enumerate() {
                             let cand = crate::parsers::zcode::make_candidate(zc, &db);
                             let unchanged = store::session_unchanged(&conn, &cand.id, 0, cand.file_mtime)
@@ -150,6 +173,11 @@ fn scan_all(app: &AppHandle, db_path: &std::path::Path) -> Result<ScanSummary, S
                                     ScanProgress { source: "zcode".into(), done: i + 1, total, updated },
                                 );
                             }
+                        }
+                        // 清理源库中已删除(time_deleted)的会话
+                        match store::cleanup_missing_zcode(&conn, &live_ids) {
+                            Ok(n) => summary.removed += n,
+                            Err(e) => log::warn!("zcode cleanup failed: {e}"),
                         }
                     }
                     Err(e) => log::warn!("zcode list_sessions failed: {e}"),

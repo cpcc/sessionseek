@@ -70,6 +70,7 @@ export interface ScanSummary {
   zcode: number;
   dsh: number;
   skipped: number;
+  removed: number;
   durationMs: number;
 }
 
