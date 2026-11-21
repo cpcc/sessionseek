@@ -1,0 +1,14 @@
+node_modules
+dist
+dist-ssr
+*.local
+
+src-tauri/target
+src-tauri/gen/schemas
+
+# tsc -b 构建产物
+*.tsbuildinfo
+vite.config.js
+vite.config.d.ts
+
+.DS_Store
